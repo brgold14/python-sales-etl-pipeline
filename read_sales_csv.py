@@ -26,4 +26,8 @@ sales_data = add_revenue_to_sales(sales)
 for sale in sales_data:
     print(sale)
 
-
+with open('sales_with_revenue.csv', 'w', newline="") as file:
+    columns = ["product", "quantity", "price", "revenue"]
+    writer = csv.DictWriter(file, fieldnames=columns)
+    writer.writeheader()
+    writer.writerows(sales_data)
