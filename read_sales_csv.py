@@ -12,38 +12,57 @@ def add_revenue_to_sales(sales):
         updated_sales.append(sale_copy)
     return updated_sales
 
-sales = []
-invalid_count = 0
 
-with open('sales.csv', 'r', newline="") as file:
-    reader = csv.DictReader(file)
+def extract_sales(filename):
+    sales = []
+    invalid_count = 0
 
-    for row in reader:
-        try:
-            row["quantity"] = int(row["quantity"])
-            row["price"] = float(row["price"])
-            row["product"] = row["product"].strip()
-            if row["quantity"] <= 0:
-                raise ValueError("Quantity must be greater than 0")
-            if row["price"] < 0:
-                raise ValueError("Price must be 0 or greater")
-            if not row["product"]:
-                raise ValueError("Product name is required")
-            sales.append(row)
-        except (ValueError, KeyError) as e:
-            invalid_count += 1
-            product = row.get("product", "Unknown")
-            print(f"Invalid entry: {product} - {e}")
+    with open(filename, 'r', newline="") as file:
+        reader = csv.DictReader(file)
+
+        for row in reader:
+            try:
+                validated_row = validate_sale(row)
+
+                sales.append(validated_row)
+
+            except (ValueError, KeyError) as e:
+                invalid_count += 1
+                product = row.get("product", "Unknown")
+                print(f"Invalid entry: {product} - {e}")
+
+    return sales, invalid_count
+
+def load_sales(filename, sales_data):
+    with open(filename, 'w', newline="") as file:
+        columns = ["product", "quantity", "price", "revenue"]
+        writer = csv.DictWriter(file, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(sales_data)
+
+def validate_sale(row):
+    row["quantity"] = int(row["quantity"])
+
+    if row["quantity"] <= 0:
+        raise ValueError("Quantity must be greater than 0")
+
+    row["price"] = float(row["price"])
+
+    if row["price"] < 0:
+        raise ValueError("Price must be 0 or greater")
+
+    row["product"] = row["product"].strip()
+
+    if not row["product"]:
+        raise ValueError("Product name is required")
+
+    return row
+
+sales, invalid_count = extract_sales('sales.csv')
 
 sales_data = add_revenue_to_sales(sales)
-for sale in sales_data:
-    print(sale)
+
+load_sales("sales_with_revenue.csv", sales_data)
 
 print(f"\nValid records: {len(sales)}")
 print(f"Invalid records: {invalid_count}")
-
-with open('sales_with_revenue.csv', 'w', newline="") as file:
-    columns = ["product", "quantity", "price", "revenue"]
-    writer = csv.DictWriter(file, fieldnames=columns)
-    writer.writeheader()
-    writer.writerows(sales_data)
