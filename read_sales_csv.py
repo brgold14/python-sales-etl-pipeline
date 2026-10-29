@@ -22,10 +22,18 @@ with open('sales.csv', 'r', newline="") as file:
         try:
             row["quantity"] = int(row["quantity"])
             row["price"] = float(row["price"])
+            row["product"] = row["product"].strip()
+            if row["quantity"] <= 0:
+                raise ValueError("Quantity must be greater than 0")
+            if row["price"] < 0:
+                raise ValueError("Price must be 0 or greater")
+            if not row["product"]:
+                raise ValueError("Product name is required")
             sales.append(row)
-        except ValueError as e:
+        except (ValueError, KeyError) as e:
             invalid_count += 1
-            print(f"Invalid entry: {row['product']} - {e}")
+            product = row.get("product", "Unknown")
+            print(f"Invalid entry: {product} - {e}")
 
 sales_data = add_revenue_to_sales(sales)
 for sale in sales_data:
