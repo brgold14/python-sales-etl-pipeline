@@ -58,11 +58,15 @@ def validate_sale(row):
 
     return row
 
-sales, invalid_count = extract_sales('sales.csv')
+def main():
+    sales, invalid_count = extract_sales("sales.csv")
 
-sales_data = add_revenue_to_sales(sales)
+    sales_data = add_revenue_to_sales(sales)
 
-load_sales("sales_with_revenue.csv", sales_data)
+    load_sales("sales_with_revenue.csv", sales_data)
 
-print(f"\nValid records: {len(sales)}")
-print(f"Invalid records: {invalid_count}")
+    print(f"\nValid records: {len(sales)}")
+    print(f"Invalid records: {invalid_count}")
+
+if __name__ == "__main__":
+    main()
