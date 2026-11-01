@@ -1,6 +1,6 @@
 import pytest, math, csv
 
-from read_sales_csv import calculate_revenue, validate_sale, extract_sales, load_sales
+from read_sales_csv import calculate_revenue, validate_sale, extract_sales, load_sales, add_revenue_to_sales
 
 @pytest.mark.parametrize(
     "quantity, price, expected",
@@ -88,3 +88,16 @@ def test_load_sales(tmp_path):
     assert rows[0]["product"] == "Laptop"
     assert rows[1]["revenue"] == "750.0"
     assert reader.fieldnames == ["product", "quantity", "price", "revenue"]
+
+def test_add_revenue_to_sales():
+    sales = [
+        {"product": "Laptop", "quantity": 2, "price": 800.0},
+        {"product": "Monitor", "quantity": 3, "price": 250.0}
+    ]
+
+    updated_sales = add_revenue_to_sales(sales)
+
+    assert len(updated_sales) == 2
+    assert updated_sales[0]["revenue"] == 1600.00
+    assert updated_sales[1]["revenue"] == 750.0
+    assert "revenue" not in sales[0] and "revenue" not in sales[1]
