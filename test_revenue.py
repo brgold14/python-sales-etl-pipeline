@@ -1,24 +1,36 @@
-import pytest
+import pytest, math
 
 from read_sales_csv import calculate_revenue, validate_sale
 
+@pytest.mark.parametrize(
+    "quantity, price, expected",
+    [
+        (3,250,750),
+        (2, 100, 200),
+        (0,100,0),
+        (5,19.99, 99.95)
+    ]
+)
+def test_calculate_revenue(quantity, price, expected):
+    assert math.isclose(calculate_revenue(quantity, price), expected)
 
-def test_calculate_revenue():
-    assert calculate_revenue(3, 250) == 750
-    assert calculate_revenue(2, 100) == 200
-    assert calculate_revenue(0, 100) == 0
-
-def test_invalid_quantity():
-    invalid_sale = {"product": "Keyboard", "quantity": "-2", "price": "50"}
-    with pytest.raises(ValueError, match="Quantity must be greater than 0"):
-        validate_sale(invalid_sale)
-
-def test_invalid_price():
-    invalid_sale = {"product": "Monitor", "quantity": "3", "price": "-250"}
-    with pytest.raises(ValueError, match="Price must be 0 or greater"):
-        validate_sale(invalid_sale)
-
-def test_invalid_product():
-    invalid_sale = {"product": "   ", "quantity": "3", "price": "100"}
-    with pytest.raises(ValueError, match="Product name is required"):
+@pytest.mark.parametrize(
+    "invalid_sale, expected_error",
+    [
+        (
+            {"product": "Keyboard", "quantity": "-2", "price": "50"},
+            "Quantity must be greater than 0"
+        ),
+        (
+            {"product": "Monitor", "quantity": "3", "price": "-250"},
+            "Price must be 0 or greater"
+        ),
+        (
+                {"product": "   ", "quantity": "3", "price": "100"},
+            "Product name is required"
+        ),
+    ]
+)
+def test_invalid_sales_parameterized(invalid_sale, expected_error):
+    with pytest.raises(ValueError, match=expected_error):
         validate_sale(invalid_sale)
