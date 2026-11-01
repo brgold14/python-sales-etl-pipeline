@@ -1,6 +1,6 @@
-import pytest, math
+import pytest, math, csv
 
-from read_sales_csv import calculate_revenue, validate_sale
+from read_sales_csv import calculate_revenue, validate_sale, extract_sales, load_sales
 
 @pytest.mark.parametrize(
     "quantity, price, expected",
@@ -34,3 +34,57 @@ def test_calculate_revenue(quantity, price, expected):
 def test_invalid_sales_parameterized(invalid_sale, expected_error):
     with pytest.raises(ValueError, match=expected_error):
         validate_sale(invalid_sale)
+
+def test_extract_sales(tmp_path):
+    test_file = tmp_path / "test_sales.csv"
+    test_file.write_text(
+        "product,quantity,price\n"
+        "Laptop,2,800\n"
+        "Monitor,3,250\n"
+    )
+
+    sales, invalid_count = extract_sales(test_file)
+
+    assert len(sales) == 2
+    assert invalid_count == 0
+    assert sales[0]["product"] == "Laptop"
+    assert sales[0]["quantity"] == 2
+    assert sales[1]["price"] == 250.0
+    assert isinstance(sales[0]["quantity"], int)
+    assert isinstance(sales[1]["price"], float)
+
+def test_extract_sales_with_invalid_records(tmp_path):
+    test_file = tmp_path / "test_sales.csv"
+    test_file.write_text(
+        "product,quantity,price\n"
+        "Laptop,2,800\n"
+        "Keyboard,abc,500\n"
+        "Monitor,3,250\n"
+        "Mouse,-5,25\n"
+        "Headphones,4,-20"
+    )
+
+    sales, invalid_count = extract_sales(test_file)
+
+    assert len(sales) == 2
+    assert invalid_count == 3
+    assert sales[0]["product"] == "Laptop"
+    assert sales[1]["product"] == "Monitor"
+
+def test_load_sales(tmp_path):
+    test_file = tmp_path / "output_sales.csv"
+    sales_data = [
+        {"product": "Laptop", "quantity": 2, "price": 800.0, "revenue": 1600.0},
+        {"product": "Monitor", "quantity": 3, "price": 250.0, "revenue": 750.0}
+    ]
+
+    load_sales(test_file, sales_data)
+
+    with open(test_file, "r", newline="") as file:
+        reader = csv.DictReader(file)
+        rows = list(reader)
+
+    assert len(rows) == 2
+    assert rows[0]["product"] == "Laptop"
+    assert rows[1]["revenue"] == "750.0"
+    assert reader.fieldnames == ["product", "quantity", "price", "revenue"]
