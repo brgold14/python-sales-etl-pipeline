@@ -1,6 +1,6 @@
-import pytest, math, csv
+import pytest, math, csv, sys
 
-from read_sales_csv import calculate_revenue, validate_sale, extract_sales, load_sales, add_revenue_to_sales
+from read_sales_csv import calculate_revenue, validate_sale, extract_sales, load_sales, add_revenue_to_sales, run_pipeline
 
 @pytest.mark.parametrize(
     "quantity, price, expected",
@@ -147,3 +147,21 @@ def test_sales_etl_pipeline(tmp_path):
     assert rows[0]["product"] == "Laptop"
     assert rows[1]["revenue"] == "750.0"
     assert rows[2]["revenue"] == "100.0"
+
+def test_run_pipeline(tmp_path):
+    input_file = tmp_path / "input_sales.csv"
+    output_file = tmp_path / "output_sales.csv"
+
+    input_file.write_text(
+        "product,quantity,price\n"
+        "Laptop,2,800\n"
+        "Monitor,3,250\n"
+        "Keyboard,abc,50\n"
+        "Mouse,4,25\n"
+    )
+
+    statistics = run_pipeline(input_file, output_file)
+
+    assert statistics["valid_records"] == 3
+    assert statistics["invalid_records"] == 1
+    assert output_file.exists()
