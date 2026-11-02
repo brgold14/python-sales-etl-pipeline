@@ -1,4 +1,4 @@
-import csv
+import csv, argparse
 
 def calculate_revenue(quantity, price):
     return quantity * price
@@ -60,15 +60,32 @@ def validate_sale(row):
 
     return row
 
-def main():
-    sales, invalid_count = extract_sales("sales.csv")
+def run_pipeline(input_filename, output_filename):
+    sales, invalid_count = extract_sales(input_filename)
 
     sales_data = add_revenue_to_sales(sales)
 
-    load_sales("sales_with_revenue.csv", sales_data)
+    load_sales(output_filename, sales_data)
 
-    print(f"\nValid records: {len(sales)}")
-    print(f"Invalid records: {invalid_count}")
+    process_statistics = {
+        "valid_records": len(sales),
+        "invalid_records": invalid_count
+    }
+
+    return process_statistics
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Extract, transform, and load sales data from CSV files."
+    )
+    parser.add_argument("input_filename", help="Path to the input CSV file")
+    parser.add_argument("output_filename", help="Path to the output CSV file")
+    args = parser.parse_args()
+
+    statistics = run_pipeline(args.input_filename, args.output_filename)
+
+    print(f"\nTotal valid records: {statistics['valid_records']}")
+    print(f"Total invalid records: {statistics['invalid_records']}")
 
 if __name__ == "__main__":
     main()
