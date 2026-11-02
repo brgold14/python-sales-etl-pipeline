@@ -5,11 +5,13 @@ def calculate_revenue(quantity, price):
 
 def add_revenue_to_sales(sales):
     updated_sales = []
+
     for sale in sales:
         sale_copy = sale.copy()
         revenue = calculate_revenue(sale["quantity"], sale["price"])
         sale_copy["revenue"] = revenue
         updated_sales.append(sale_copy)
+
     return updated_sales
 
 
