@@ -14,8 +14,10 @@ __pycache__/
 .env
 .env.*
 
-#Generated test outpus
+#Generated test outputs
 test_ouput.csv
+*.log
 
 #Demo pyfiles
 arguments_demo.py
+logging_demo.py
