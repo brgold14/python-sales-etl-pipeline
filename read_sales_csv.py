@@ -1,4 +1,6 @@
-import csv, argparse
+import csv, argparse, logging
+from logging import StreamHandler
+
 
 def calculate_revenue(quantity, price):
     return quantity * price
@@ -31,7 +33,7 @@ def extract_sales(filename):
             except (ValueError, KeyError) as e:
                 invalid_count += 1
                 product = row.get("product", "Unknown")
-                print(f"Invalid entry: {product} - {e}")
+                logging.warning(f"Invalid entry: %s - %s", product, e)
 
     return sales, invalid_count
 
@@ -61,20 +63,43 @@ def validate_sale(row):
     return row
 
 def run_pipeline(input_filename, output_filename):
-    sales, invalid_count = extract_sales(input_filename)
+    logging.info("Starting ETL pipeline. Input file: %s", input_filename)
+
+    try:
+        sales, invalid_count = extract_sales(input_filename)
+
+    except FileNotFoundError:
+        logging.exception("Failed to open sales file: %s", input_filename)
+        raise
 
     sales_data = add_revenue_to_sales(sales)
 
     load_sales(output_filename, sales_data)
+    logging.info("Successfully wrote output file: %s", output_filename)
 
     process_statistics = {
         "valid_records": len(sales),
         "invalid_records": invalid_count
     }
+    logging.info("ETL pipeline completed. Valid Records: %s, Invalid Records: %s",
+                 process_statistics["valid_records"],
+                 process_statistics["invalid_records"]
+                 )
 
     return process_statistics
 
 def main():
+    console_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler("pipeline.log", mode="a")
+    file_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.WARNING)
+
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s',
+                        handlers=[console_handler,
+                                  file_handler]
+                        )
+
     parser = argparse.ArgumentParser(
         description="Extract, transform, and load sales data from CSV files."
     )
