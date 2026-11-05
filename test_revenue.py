@@ -1,4 +1,4 @@
-import pytest, math, csv, sys
+import pytest, math, csv, sys, logging
 
 from read_sales_csv import calculate_revenue, validate_sale, extract_sales, load_sales, add_revenue_to_sales, run_pipeline
 
@@ -165,3 +165,57 @@ def test_run_pipeline(tmp_path):
     assert statistics["valid_records"] == 3
     assert statistics["invalid_records"] == 1
     assert output_file.exists()
+
+def test_run_pipeline_missing_file(tmp_path, caplog):
+    input_file = tmp_path / "missing_sales.csv"
+    output_file = tmp_path / "output_sales.csv"
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        run_pipeline(input_file, output_file)
+
+    assert not output_file.exists()
+    assert "Failed to open sales file:" in caplog.text
+    assert "missing_sales.csv" in str(exc_info.value)
+    assert "missing_sales.csv" in caplog.text
+
+def test_extract_sales_logs_invalid_record(tmp_path, caplog):
+    input_file = tmp_path / "input_sales.csv"
+
+
+    input_file.write_text(
+        "product,quantity,price\n"
+        "Laptop,2,800\n"
+        "Keyboard,-1,50\n"
+        "Mouse,3,25\n"
+    )
+
+    sales, invalid_count = extract_sales(input_file)
+
+    assert len(sales) == 2
+    assert invalid_count == 1
+    assert "Invalid entry:" in caplog.text
+    assert "Keyboard" in caplog.text
+    assert any(
+        record.levelname == "WARNING"
+        and "Keyboard" in record.getMessage()
+        for record in caplog.records
+    )
+
+def test_extract_sales_valid_records_no_warnings(tmp_path, caplog):
+    input_file = tmp_path / "input_sales.csv"
+
+    input_file.write_text(
+        "product,quantity,price\n"
+        "Laptop,2,800\n"
+        "Mouse,3,25\n"
+        "Monitor,1,250\n"
+    )
+
+    sales, invalid_count = extract_sales(input_file)
+
+    assert len(sales) == 3
+    assert invalid_count == 0
+    assert not any(
+        record.levelno >= logging.WARNING
+        for record in caplog.records
+    )
