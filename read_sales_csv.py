@@ -62,31 +62,51 @@ def validate_sale(row):
 
     return row
 
+def aggregate_revenue_by_product(sales):
+    aggregated_revenue = {}
+
+    for sale in sales:
+        product = sale["product"]
+        revenue = sale["revenue"]
+
+        aggregated_revenue[product] = aggregated_revenue.get(product, 0) + revenue
+
+    return aggregated_revenue
+
 def run_pipeline(input_filename, output_filename):
     logging.info("Starting ETL pipeline. Input file: %s", input_filename)
 
     try:
         sales, invalid_count = extract_sales(input_filename)
 
-    except FileNotFoundError:
-        logging.exception("Failed to open sales file: %s", input_filename)
+    except OSError:
+        logging.exception("Failed to read sales file: %s", input_filename)
         raise
 
     sales_data = add_revenue_to_sales(sales)
+    revenue_summary = aggregate_revenue_by_product(sales_data)
 
-    load_sales(output_filename, sales_data)
-    logging.info("Successfully wrote output file: %s", output_filename)
+    try:
+        load_sales(output_filename, sales_data)
+        logging.info("Successfully wrote output file: %s", output_filename)
+
+    except OSError:
+        logging.exception("Failed to write sales file: %s", output_filename)
+        raise
 
     process_statistics = {
         "valid_records": len(sales),
-        "invalid_records": invalid_count
+        "invalid_records": invalid_count,
+        "revenue_by_product": revenue_summary
     }
+
     logging.info("ETL pipeline completed. Valid Records: %s, Invalid Records: %s",
                  process_statistics["valid_records"],
                  process_statistics["invalid_records"]
                  )
 
     return process_statistics
+
 
 def main():
     console_handler = logging.StreamHandler()
@@ -111,6 +131,9 @@ def main():
 
     print(f"\nTotal valid records: {statistics['valid_records']}")
     print(f"Total invalid records: {statistics['invalid_records']}")
+    print("\nRevenue by Product:")
+    for product, revenue in statistics['revenue_by_product'].items():
+        print(f"{product}: ${revenue:.2f}")
 
 if __name__ == "__main__":
     main()
