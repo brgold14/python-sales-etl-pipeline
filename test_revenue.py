@@ -1,6 +1,7 @@
-import pytest, math, csv, sys, logging
+import pytest, math, csv, sys, logging, read_sales_csv
+from _pytest import monkeypatch
 
-from read_sales_csv import calculate_revenue, validate_sale, extract_sales, load_sales, add_revenue_to_sales, run_pipeline
+from read_sales_csv import calculate_revenue, validate_sale, extract_sales, load_sales, add_revenue_to_sales, run_pipeline, aggregate_revenue_by_product
 
 @pytest.mark.parametrize(
     "quantity, price, expected",
@@ -158,12 +159,17 @@ def test_run_pipeline(tmp_path):
         "Monitor,3,250\n"
         "Keyboard,abc,50\n"
         "Mouse,4,25\n"
+        "Laptop,1,800\n"
     )
 
     statistics = run_pipeline(input_file, output_file)
 
-    assert statistics["valid_records"] == 3
+    assert statistics["valid_records"] == 4
     assert statistics["invalid_records"] == 1
+    assert statistics["revenue_by_product"]["Laptop"] == 2400.00
+    assert statistics["revenue_by_product"]["Monitor"] == 750.00
+    assert statistics["revenue_by_product"]["Mouse"] == 100.00
+    assert "Keyboard" not in statistics["revenue_by_product"]
     assert output_file.exists()
 
 def test_run_pipeline_missing_file(tmp_path, caplog):
@@ -174,7 +180,7 @@ def test_run_pipeline_missing_file(tmp_path, caplog):
         run_pipeline(input_file, output_file)
 
     assert not output_file.exists()
-    assert "Failed to open sales file:" in caplog.text
+    assert "Failed to read sales file:" in caplog.text
     assert "missing_sales.csv" in str(exc_info.value)
     assert "missing_sales.csv" in caplog.text
 
@@ -219,3 +225,63 @@ def test_extract_sales_valid_records_no_warnings(tmp_path, caplog):
         record.levelno >= logging.WARNING
         for record in caplog.records
     )
+
+def test_run_pipeline_output_directory_missing(tmp_path, caplog):
+    input_file = tmp_path / "input_sales.csv"
+    output_file = tmp_path / "missing_folder" / "output_sales.csv"
+
+    input_file.write_text(
+        "product,quantity,price\n"
+        "Laptop,2,800\n"
+    )
+
+    with pytest.raises(FileNotFoundError):
+        run_pipeline(input_file, output_file)
+
+    assert any(
+        record.levelname == "ERROR"
+        and "Failed to write sales file:" in record.getMessage()
+        for record in caplog.records
+    )
+
+def test_run_pipeline_input_permission_error(tmp_path, monkeypatch, caplog):
+    input_file = tmp_path / "input_sales.csv"
+    output_file = tmp_path / "output_sales.csv"
+
+    def fake_extract_sales(filename):
+        raise PermissionError("Access Denied")
+
+    monkeypatch.setattr(
+        read_sales_csv, "extract_sales", fake_extract_sales
+    )
+
+    with pytest.raises(PermissionError):
+        run_pipeline(input_file, output_file)
+
+    assert any(
+        record.levelname == "ERROR"
+        and "Failed to read sales file:" in record.getMessage()
+        for record in caplog.records
+    )
+
+def test_aggregate_revenue_by_product():
+    sales = [
+        {"product": "Laptop", "quantity": 2, "revenue": 1600.00},
+        {"product": "Mouse", "quantity": 3, "revenue": 75.00},
+        {"product": "Laptop", "quantity": 1, "revenue": 800.00},
+        {"product": "Mouse", "quantity": 2, "revenue": 50.00},
+        {"product": "Monitor", "quantity": 1, "revenue": 250.00}
+    ]
+
+    result = aggregate_revenue_by_product(sales)
+
+    assert len(result) == 3
+    assert result["Laptop"] == 2400.00
+    assert result["Mouse"] == 125.00
+    assert result["Monitor"] == 250.00
+
+def test_aggregate_revenue_by_product_empty():
+    sales = []
+    result = aggregate_revenue_by_product(sales)
+
+    assert result == {}
