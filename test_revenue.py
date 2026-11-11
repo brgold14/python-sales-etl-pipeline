@@ -1,7 +1,7 @@
 import pytest, math, csv, sys, logging, read_sales_csv
 from _pytest import monkeypatch
 
-from read_sales_csv import calculate_revenue, validate_sale, extract_sales, load_sales, add_revenue_to_sales, run_pipeline, aggregate_revenue_by_product
+from read_sales_csv import calculate_revenue, validate_sale, extract_sales, load_sales, add_revenue_to_sales, run_pipeline, aggregate_revenue_by_product, write_revenue_summary
 
 @pytest.mark.parametrize(
     "quantity, price, expected",
@@ -285,3 +285,84 @@ def test_aggregate_revenue_by_product_empty():
     result = aggregate_revenue_by_product(sales)
 
     assert result == {}
+
+def test_write_revenue_summary(tmp_path):
+    output_file = tmp_path / "revenue_summary.csv"
+    revenue_summary = {
+        "Laptop": 2400.0,
+        "Monitor": 750.0,
+        "Mouse": 100.0
+    }
+
+    write_revenue_summary(output_file, revenue_summary)
+
+    with open(output_file, "r", newline="") as file:
+        reader = csv.DictReader(file)
+        rows = list(reader)
+
+    assert len(rows) == 3
+    assert rows[0]["product"] == "Laptop"
+    assert rows[0]["total_revenue"] == "2400.0"
+    assert rows[1]["total_revenue"] == "750.0"
+    assert rows[2]["product"] == "Mouse"
+
+def test_run_pipeline_with_summary(tmp_path):
+    input_file = tmp_path / "input_sales.csv"
+    output_file = tmp_path / "output_sales.csv"
+    revenue_file = tmp_path / "revenue_summary.csv"
+
+    input_file.write_text(
+        "product,quantity,price\n"
+        "Laptop,3,800\n"
+        "Laptop,2,800\n"
+        "Mouse,3,25\n"
+        "Mouse,1,25\n"
+    )
+
+    run_pipeline(input_file, output_file, revenue_file)
+
+    with open(revenue_file, "r", newline="") as file:
+        reader = csv.DictReader(file)
+        rows = list(reader)
+
+    assert output_file.exists()
+    assert revenue_file.exists()
+    assert len(rows) == 2
+    assert rows[0]["total_revenue"] == "4000.0"
+    assert rows[1]["total_revenue"] == "100.0"
+
+def test_run_pipeline_without_summary(tmp_path):
+    input_file = tmp_path / "input_sales.csv"
+    output_file = tmp_path / "output_sales.csv"
+    revenue_file = tmp_path / "revenue_summary.csv"
+
+    input_file.write_text(
+        "product,quantity,price\n"
+        "Laptop,3,800\n"
+    )
+
+    run_pipeline(input_file, output_file)
+
+    assert output_file.exists()
+    assert not revenue_file.exists()
+
+def test_run_pipeline_summary_directory_missing(tmp_path, caplog):
+    input_file = tmp_path / "input_sales.csv"
+    output_file = tmp_path / "output_sales.csv"
+    revenue_file = tmp_path / "missing_folder" / "revenue_summary.csv"
+
+    input_file.write_text(
+        "product,quantity,price\n"
+        "Laptop,2,800\n"
+    )
+
+    with pytest.raises(FileNotFoundError):
+        run_pipeline(input_file, output_file, revenue_file)
+
+    assert output_file.exists()
+    assert not revenue_file.exists()
+    assert any(
+        record.levelname == "ERROR"
+        and "Failed to write summary file:" in record.getMessage()
+        for record in caplog.records
+    )
