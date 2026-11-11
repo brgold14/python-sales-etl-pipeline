@@ -15,7 +15,7 @@ __pycache__/
 .env.*
 
 #Generated test outputs
-test_ouput.csv
+*.csv
 *.log
 
 #Demo pyfiles
