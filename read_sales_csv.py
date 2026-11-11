@@ -1,4 +1,5 @@
 import csv, argparse, logging
+from enum import nonmember
 from logging import StreamHandler
 
 
@@ -44,6 +45,17 @@ def load_sales(filename, sales_data):
         writer.writeheader()
         writer.writerows(sales_data)
 
+def write_revenue_summary(filename, revenue_summary):
+    with open(filename, 'w', newline="") as file:
+        columns = ["product", "total_revenue"]
+        writer = csv.DictWriter(file, fieldnames=columns)
+        writer.writeheader()
+        for product, revenue in revenue_summary.items():
+            row = {"product": product,
+                   "total_revenue": revenue}
+            writer.writerow(row)
+
+
 def validate_sale(row):
     row["quantity"] = int(row["quantity"])
 
@@ -73,7 +85,7 @@ def aggregate_revenue_by_product(sales):
 
     return aggregated_revenue
 
-def run_pipeline(input_filename, output_filename):
+def run_pipeline(input_filename, output_filename, summary_filename=None):
     logging.info("Starting ETL pipeline. Input file: %s", input_filename)
 
     try:
@@ -93,6 +105,16 @@ def run_pipeline(input_filename, output_filename):
     except OSError:
         logging.exception("Failed to write sales file: %s", output_filename)
         raise
+
+    if summary_filename is not None:
+        try:
+            write_revenue_summary(summary_filename, revenue_summary)
+            logging.info("Successfully wrote summary file: %s", summary_filename)
+
+        except OSError:
+            logging.exception("Failed to write summary file: %s", summary_filename)
+            raise
+
 
     process_statistics = {
         "valid_records": len(sales),
@@ -125,9 +147,10 @@ def main():
     )
     parser.add_argument("input_filename", help="Path to the input CSV file")
     parser.add_argument("output_filename", help="Path to the output CSV file")
+    parser.add_argument("--summary_filename", help="Path to the optional revenue summary CSV file", default=None)
     args = parser.parse_args()
 
-    statistics = run_pipeline(args.input_filename, args.output_filename)
+    statistics = run_pipeline(args.input_filename, args.output_filename, args.summary_filename)
 
     print(f"\nTotal valid records: {statistics['valid_records']}")
     print(f"Total invalid records: {statistics['invalid_records']}")
